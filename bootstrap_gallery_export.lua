@@ -37,7 +37,6 @@ local json_pretty_print = require "lib/json_pretty_print"
 local PS = dt.configuration.running_os == "windows" and  "\\"  or  "/"
 
 -- title, first image w/o path, title, web-relative dir
--- minify css with https://purifycss.online
 -- don't forget to double % signs
 html_start = [[<!doctype html>
 <html lang="en">
@@ -61,8 +60,8 @@ html_start = [[<!doctype html>
     <h1>%s</h1>
     <div id="nav">&nbsp;&nbsp;&nbsp;&nbsp;<a href='..'>Index</a>&nbsp;&nbsp;&nbsp;&nbsp;</div>
     <div id="zip">
-      <button id="startButton" style="width:100%%" data-dir2zip="/%s">Zipfile erstellen</button><br />
-      <div id="zipstatus" style="width:100%%; text-align:center;"></div>
+      <button id="startButton" data-dir2zip="/%s">Zipfile erstellen</button><br />
+      <div id="zipstatus" style="text-align:center;"></div>
     </div>
   </div>
   <div id="outer_lightgallery">
@@ -196,36 +195,58 @@ local function export_thumbnail(image, filename)
     exporter:write_image(image, filename, true)
 end
 
-local function custom_tag_filter(str)
-  blacklist = {"darktable", "ignore"}
-  -- Split string by '|'
-  local parts = {}
-  for part in string.gmatch(str, "([^|]+)") do
-    table.insert(parts, part)
-  end
-  -- a) Check if the first word is in the blacklist
-  for _, v in ipairs(blacklist) do
-    if parts[1] == v then
-      return ""
+local function custom_tag_filter(tagstr, image)
+    local blacklist = { darktable=true, style=true }
+
+    -- split string by '|'
+    local parts = {}
+    for part in string.gmatch(tagstr, "([^|]+)") do
+        table.insert(parts, part)
     end
-  end
-  -- b + c) Return last, or second last if last is only digits
-  local last = parts[#parts]
-  if last:match("^%d+$") and #parts > 1 then
-    return parts[#parts-1]
-  else
-    return last
-  end
+
+    -- a) return "" if first part in blacklist
+    if blacklist[parts[1]] then
+        return ""
+    end
+
+    -- b) normally last part
+    local last_part = parts[#parts]
+    local second_last_part = parts[#parts - 1] or ""
+
+    -- c) if last part is digits only, return second last part
+    if last_part:match("^%d+$") then
+        last_part = second_last_part
+    end
+
+    -- d) if first part is "where" and image has lat/lon, return OSM link
+    if parts[1] == "where" and image and image.latitude and image.longitude then
+        local lat, lon = image.latitude, image.longitude
+        -- encode last_part for URL (basic encoding)
+        local function url_encode(str)
+        -- if (str) then
+        --     str = str:gsub("\n", "\r\n")
+        --     str = str:gsub("([^%w _%%%-%.~])", function(c) return string.format("%%%02X", string.byte(c)) end)
+        --     str = str:gsub(" ", "+")
+        -- end
+        return str    
+        end
+
+        local label = url_encode(last_part)
+        local url = string.format("https://www.openstreetmap.org/?mlat=%f&mlon=%f#map=18/%f/%f", lat, lon, lat, lon)
+        return string.format("<a target='_blank' title='show on OSM' href='%s'>%s</a>", url, label)
+    end
+    return last_part
 end
 
-local function get_tagstring(tags)
+local function get_tagstring(image)
+    tags = dt.tags.get_tags(image)
     local tagstring = ""
     -- dt.print_log(string.format("webgallery_image_header_footer_widget: %s", webgallery_image_header_footer_widget.value))
     if webgallery_image_header_footer_widget.value == "both" or 
        webgallery_image_header_footer_widget.value == "footer only" then
         for _, tag in ipairs(tags) do
-            dt.print_log("  Tag: " .. tag.name)
-            ts = custom_tag_filter(tag.name)
+            -- dt.print_log("  Tag: " .. tag.name)
+            ts = custom_tag_filter(tag.name, image)
             if ts ~= "" then
                 if tagstring ~= "" then
                     tagstring = tagstring..', '
@@ -251,6 +272,7 @@ local function build_gallery(storage, images_table, extra_data)
     df.mkdir(dest_dir..PS..'thumbnails')
 
     local images_ordered = extra_data["images"] -- process images in the correct order
+    local html_body = ""
     for i, image in ipairs(images_ordered) do
         local fn = get_file_name(images_table[image])
         local filename = dest_dir..PS..fn
@@ -266,7 +288,7 @@ local function build_gallery(storage, images_table, extra_data)
             end 
         end
         -- dt.print_log(string.format("title: >%s<", title))
-        local tagstring = get_tagstring(dt.tags.get_tags(image))  -- or: local tags = image:get_tags()
+        local tagstring = get_tagstring(image)  -- or: local tags = image:get_tags()
         html_body = html_body .. string.format( [[<a href="%s" data-toggle="lightbox" data-gallery="example-gallery" data-size="fullscreen"
       data-title="%s" data-footer="%s" class="col-sm-4">
       <img src="thumbnails/%s" class="thumbnail" /></a>
