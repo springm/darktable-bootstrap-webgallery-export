@@ -259,7 +259,6 @@ local function get_tagstring(image)
     return tagstring
 end
 
-local html_body = ""
 local function build_gallery(storage, images_table, extra_data)
     local size_value = webgallery_image_size_widget.value  -- or read it directly from preferences if applicable
     local max_size = tonumber(size_value) or 0
@@ -273,6 +272,7 @@ local function build_gallery(storage, images_table, extra_data)
 
     local images_ordered = extra_data["images"] -- process images in the correct order
     local html_body = ""
+    local html_start2 = ""
     for i, image in ipairs(images_ordered) do
         local fn = get_file_name(images_table[image])
         local filename = dest_dir..PS..fn
@@ -294,13 +294,15 @@ local function build_gallery(storage, images_table, extra_data)
       <img src="thumbnails/%s" class="thumbnail" /></a>
       ]], fn, title, tagstring, fn )
         if i == 1 then
-            html_start = string.format(html_start, title_widget.text, fn, title_widget.text, get_file_name(dest_dir))
+            html_start2 = string.format(html_start, title_widget.text, fn, title_widget.text, get_file_name(dest_dir))
         end
     end
     local file = io.open(dest_dir..PS.."index.html", "w")
-    file:write(html_start .. html_body .. html_end)
+    file:write(html_start2 .. html_body .. html_end)
     file:close()
     copy_static_files(dest_dir)
+    dt.print_log("xdg-open ".. dest_dir .. PS .. "index.html")
+    os.execute("xdg-open ".. dest_dir .. PS .. "index.html")
 end
 
 local function show_status(storage, image, format, filename,
