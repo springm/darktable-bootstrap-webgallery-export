@@ -1,6 +1,8 @@
---[[Export module to create a web gallery from selected images
+--[[Export module to create a bootstrap based web gallery from selected images
 
-  copyright (c) 2025 Tino Mettler
+  copyright (c) 2025 Markus Spring
+
+  Based on the work of Tino Mettler
 
   darktable is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -71,10 +73,6 @@ html_end = [[  </div>
   <!-- jQuery, Popper, Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-  <!--<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
-    crossorigin="anonymous"></script> -->
-  <!-- <script src="https://cdn.jsdelivr.net/npm/bs5-lightbox@1.8.5/dist/index.bundle.min.js"></script> -->
   <!-- Ekko Lightbox JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"></script>
   <script>
@@ -94,7 +92,7 @@ html_end = [[  </div>
 -- M A I N
 -- - - - - - - - - - - - - - - - - - - - - - - -
 
-local temp = dt.preferences.read('web_gallery', 'title', 'string')
+local temp = dt.preferences.read('bootstrap_webgallery', 'title', 'string')
 if temp == nil then temp = 'Darktable gallery' end
 
 local title_widget = dt.new_widget("entry")
@@ -102,16 +100,16 @@ local title_widget = dt.new_widget("entry")
    text = temp
 }
 
-local temp = dt.preferences.read('web_gallery', 'destination_dir', 'string')
+local temp = dt.preferences.read('bootstrap_webgallery', 'destination_basedir', 'string')
 if temp == nil then temp = '' end
 
 local dest_dir_widget = dt.new_widget("file_chooser_button")
 {
-   title = "select output folder",
-   tooltip = "select output folder",
+   title = "gallery basedir",
+   tooltip = "select basedir for gallery. gallerydir will be appended.",
    value = temp,
    is_directory = true,
-   changed_callback = function(this) dt.preferences.write('web_gallery', 'destination_dir', 'string', this.value) end
+   changed_callback = function(this) dt.preferences.write('bootstrap_webgallery', 'destination_basedir', 'string', this.value) end
 }
 
 -- Function to find index of a value in size_options
@@ -128,21 +126,21 @@ local size_options = { "2500", "3000", "3500" }
 local header_footer_options = { "none", "header only", "footer only", "both" }
 
 -- Read saved preference string
-local saved_size = dt.preferences.read('web_gallery', "webgallery_image_size", "string")
+local saved_size = dt.preferences.read('bootstrap_webgallery', "webgallery_image_size", "string")
 -- Find corresponding index, default to 1 if not found
 local selected_index = find_index(saved_size, size_options) or 1
 
 local webgallery_image_size_widget = dt.new_widget("combobox") {
-  label = "blog image size",
-  tooltip = "Select image size for publication",
+  label = "gallery image size",
+  tooltip = "Select image size for gallery",
   selected = selected_index,  -- must be index, not string
   changed_callback = function(w)
-    dt.preferences.write('web_gallery', "webgallery_image_size", "string", size_options[w.selected])
+    dt.preferences.write('bootstrap_webgallery', "webgallery_image_size", "string", size_options[w.selected])
   end,
   table.unpack(size_options)
 }
 
-local saved_header_footer = dt.preferences.read('web_gallery', "webgallery_image_header_footer", "string")
+local saved_header_footer = dt.preferences.read('bootstrap_webgallery', "webgallery_image_header_footer", "string")
 -- Find corresponding index, default to 1 if not found
 local selected_index = find_index(saved_header_footer, header_footer_options) or 1
 
@@ -151,7 +149,7 @@ local webgallery_image_header_footer_widget = dt.new_widget("combobox") {
   tooltip = "Select image size for publication",
   selected = selected_index,  -- must be index, not string
   changed_callback = function(w)
-    dt.preferences.write('web_gallery', "webgallery_image_header_footer", "string", header_footer_options[w.selected])
+    dt.preferences.write('bootstrap_webgallery', "webgallery_image_header_footer", "string", header_footer_options[w.selected])
   end,
   table.unpack(header_footer_options)
 }
@@ -163,11 +161,37 @@ local gallery_widget = dt.new_widget("box")
                            dt.new_widget("label"){label = "gallery title", halign = "start"}, 
                            title_widget},
     dt.new_widget("box") { orientation = "horizontal", 
-                           dt.new_widget("label"){label = "directory", halign = "start"},
+                           dt.new_widget("label"){label = "gallery basedir", halign = "start"},
                            dest_dir_widget},
     webgallery_image_header_footer_widget,
     webgallery_image_size_widget
 }
+
+-- -------------------------------------------------------------------------------------------------------------
+-- functions
+-- -------------------------------------------------------------------------------------------------------------
+
+-- Function to replace German umlauts and sanitize the filename
+local function create_safe_filename(title)
+  local replacements = {
+      ["ä"] = "ae", ["ö"] = "oe", ["ü"] = "ue",
+      ["Ä"] = "Ae", ["Ö"] = "Oe", ["Ü"] = "Ue",
+      ["ß"] = "ss"
+  }
+
+  title = title:gsub("[%z\1-\127\194-\244][\128-\191]*", function(char)
+      return replacements[char] or char
+  end)
+  title = title:gsub("[^%w%-]", "_")
+  title = title:gsub("_+", "_")
+  title = title:gsub("^_+", ""):gsub("_+$", "")
+  if title == "" then
+      title = "untitled"
+  end
+  title = title:sub(1, 255)
+  return title
+end
+
 
 local function copy_static_files(dest_dir)
     dt.print("copy static gallery files")
@@ -196,7 +220,7 @@ local function export_thumbnail(image, filename)
 end
 
 local function custom_tag_filter(tagstr, image)
-    local blacklist = { darktable=true, style=true }
+    local blacklist = { darktable=true, blog=true, LOCKED=true }
 
     -- split string by '|'
     local parts = {}
@@ -266,7 +290,7 @@ local function build_gallery(storage, images_table, extra_data)
     jpeg_exporter.max_height = max_size
     jpeg_exporter.max_width  = max_size
 
-    local dest_dir = dest_dir_widget.value
+    local dest_dir = dest_dir_widget.value..PS..create_safe_filename(title_widget.text)
     df.mkdir(dest_dir)
     df.mkdir(dest_dir..PS..'thumbnails')
 
@@ -313,8 +337,8 @@ end
 local script_data = {}
 
 script_data.metadata = {
-    name = "website gallery (new)",
-    purpose = "create a web gallery from exported images",
+    name = "website gallery (bootstrap)",
+    purpose = "create a bootstrap based web gallery from exported images",
     author = "Markus Spring <me+darktable@markus-spring.de> basic idea from Tino Mettler <tino+darktable@tikei.de>",
     help = "https://docs.darktable.org/lua/stable/lua.scripts.manual/scripts/contrib/TODO"
 }
@@ -324,16 +348,16 @@ script_data.restart = nil -- how to restart the (lib) script after it's been hid
 script_data.show = nil -- only required for libs since the destroy_method only hides them
 
 local function destroy()
-    dt.preferences.write('web_gallery', 'title', 'string', title_widget.text)
+    dt.preferences.write('bootstrap_webgallery', 'title', 'string', title_widget.text)
     dt.destroy_storage("module_webgallery")
 end
 script_data.destroy = destroy
 
 local function initialize(storage, img_format, images, high_quality, extra_data)
-    dt.preferences.write('web_gallery', 'title', 'string', title_widget.text)
+    dt.preferences.write('bootstrap_webgallery', 'title', 'string', title_widget.text)
     extra_data["images"] = images -- needed, to preserve images order
 end
 
-dt.register_storage("module_webgallery", "website gallery (new)", show_status, build_gallery, nil, initialize, gallery_widget)
+dt.register_storage("module_bootstrap_webgallery", "website gallery (bootstrap)", show_status, build_gallery, nil, initialize, gallery_widget)
 
 return script_data
