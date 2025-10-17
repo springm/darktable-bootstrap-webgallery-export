@@ -1,0 +1,122 @@
+/* user-override.css */
+
+#header {
+    height: 240px;
+    display: inline-grid;
+    justify-content: space-between;
+}
+
+#header,
+#outer_lightgallery {
+    background-color: rgba(0, 0, 0, 0.2);
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: 100% auto;
+    border-radius: 12px;
+    box-shadow: 1px 3px 8px rgba(0, 0, 0, 0.6);
+    left: 5%;
+    max-height: 100%;
+    position: relative;
+    top: 0;
+    width: 90%;
+    z-index: 10;
+}
+
+#outer_lightgallery {
+    display: block;
+    margin-top: 1em;
+    min-height: 2em;
+    /* new */
+    text-align: center;
+    /* display: flex */
+    /* justify-content: center; */
+}
+
+#lightgallery,
+#filter-results,
+#results {
+    padding: 1em;
+}
+
+#lightgallery img,
+#results img {
+    width: 205px;
+    height: 205px;
+    object-fit: cover;
+    z-index: 9;
+    padding: 0 3px 3px 0;
+}
+
+#header h1,
+#nav,
+#zip {
+    display: inline-block;
+    /* background-color: #ddd; */
+    /* color: #fff; */
+    background-color: rgba(255, 255, 255, 0.65);
+    padding: 0.5em;
+    height: 2em;
+    border-radius: 0 0 6px 6px;
+    border-radius: 6px;
+}
+#header h1 {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+}
+
+#zip, #nav {
+    position: absolute;
+    right: 1em;
+    bottom: 1em;
+    height: 4em;
+    width: 9em;
+}
+
+#nav {
+    right: 1em;
+    height: 2.5em;
+    bottom: 6em;
+}
+
+/* for the header image */
+.sprite {
+    background-size: auto;
+}
+
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.42857143;
+    color: #333;
+    background-color: #fff;
+}
+
+button {
+    border-radius: 8px;
+    background: #ccc;
+}
+
+#outer_lightgallery {
+    padding: 5px;
+}
+
+.thumbnail {
+    padding: 5px;
+    border-radius: 12px;
+    width: 205px;
+    height: 205px;
+    object-fit: cover;
+    z-index: 9;
+}
+
+/* White border around lightbox images */
+.ekko-lightbox .modal-body img {
+    border: 5px solid white;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+}
+
+#startButton,
+#zipstatus {
+    width: 100%;
+}
